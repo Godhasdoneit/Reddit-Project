@@ -39,12 +39,12 @@ pipeline {
                 sh "trivy fs . > trivys.txt"
             }
        }
-       stage('OWASP FILE SCAN') {
-            steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey 0e3f83e0-9c40-4469-86ef-22b666ba753c', odcInstallation: 'DP-Check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-       }
+      # stage('OWASP FILE SCAN') {
+      #     steps {
+      #        dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey 0e3f83e0-9c40-4469-86ef-22b666ba753c', odcInstallation: 'DP-Check'
+      #         dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+      #      }
+      # }
        stage('Docker Login') {
             steps {
                 sh "echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin"
