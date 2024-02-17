@@ -109,7 +109,9 @@ pipeline {
             slackSend channel: '#alerts', color: 'danger', message: "${currentBuild.currentResult}: \nJOB_NAME: ${env.JOB_NAME} \nBUILD_NUMBER: ${env.BUILD_NUMBER} \nBRANCH_NAME: ${env.BRANCH_NAME}. \n More Info ${env.BUILD_URL}"
         } 
     }
-    def determineTargetEnvironment() {
+    
+}
+def determineTargetEnvironment() {
     def branchName = env.BRANCH_NAME
     if (branchName == 'qa') {
         return 'qa'
@@ -119,7 +121,6 @@ pipeline {
         return 'dev'
     }
     }   
-}
 
 
 
