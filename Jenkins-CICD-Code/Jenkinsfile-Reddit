@@ -82,8 +82,8 @@ pipeline {
                             def branchTag = determineTargetEnvironment()
                             def targetEnvironment = determineTargetEnvironment()
                             def deploymentName = "${targetEnvironment}-reddit-project-deployment"
-                            def deploymentFile = "${targetEnvironment}-deployment.yaml"
-                            def serviceFile = "${targetEnvironment}-service.yaml"
+                            def deploymentFile = "${targetEnvironment}-deployment.yml"
+                            def serviceFile = "${targetEnvironment}-service.yml"
                             def deploymentExist = sh(script: "kubectl get deployment ${deploymentName}", returnStatus: true)
 
                             if (deploymentExist == 0) {
