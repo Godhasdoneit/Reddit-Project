@@ -8,6 +8,7 @@ pipeline {
         SCANNER_HOME = tool 'sonar-scanner'
         IMAGE_NAME = "blesseddocker/reddit-project"
         IMAGE_TAG = "v1-${env.BUILD_NUMBER}"
+        BRANCH_NAME = "${GIT_BRANCH.split("/")[1]}" 
     }
     stages {
         stage('Clean Workspace'){
@@ -37,7 +38,7 @@ pipeline {
                 sh "trivy fs . > trivys.txt"
             }
        }
-       stages('OWASP FILE SCAN') {
+       stage('OWASP FILE SCAN') {
             steps {
                 dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey 0e3f83e0-9c40-4469-86ef-22b666ba753c', odcInstallation: 'DP-Check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
@@ -51,7 +52,7 @@ pipeline {
        }  
        stage('Docker Build') {
             steps {
-                scripts {
+                script {
                     def branchTag = determineTargetEnvironment()
                     if (branchTag == 'prod') {
                         sh "npm run build"
