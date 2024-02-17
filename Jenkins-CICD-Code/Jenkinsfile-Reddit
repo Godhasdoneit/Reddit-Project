@@ -1,7 +1,7 @@
 pipeline {
     agent any
     tools {
-        nodejs 'nodejs21'
+        nodejs 'node21'
     }
     environment {
         DOCKERHUB_CREDENTIALS = credentials('716274dc-f41e-4e10-9f58-f501c9063a39')
