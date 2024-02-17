@@ -28,7 +28,7 @@ pipeline {
        }
        stage('SonarQube Analysis') {
             steps{
-                sh $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=reddit-project -Dsonar.projectName=reddit-project
+                sh "$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=reddit-project -Dsonar.projectName=Reddis-Project"
            }
 
        }
