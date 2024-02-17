@@ -1,0 +1,127 @@
+pipeline {
+    agent any
+    tools {
+        nodejs 'nodejs21'
+    }
+    environment {
+        DOCKERHUB_CREDENTIALS =     credentials('716274dc-f41e-4e10-9f58-f501c9063a39')
+        SCANNER_HOME = tool 'sonar-scanner'
+        IMAGE_NAME = "blesseddocker/reddit-project"
+        IMAGE_TAG = "v1-${env.BUILD_NUMBER}"
+    }
+    stages {
+        stage('Clean Workspace'){
+            steps {
+                cleanWs()
+            }
+       }
+       stage('Checkout from GIT') {
+            steps{
+                checkout scmGit(branches: [[name: '*/dev'], [name: '*/qa'], [name: '*/prod']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Godhasdoneit/Reddit-Project.git']])
+
+            }
+       }
+       stage('NPM Install') {
+            steps {
+                sh 'npm install'
+           }
+       }
+       stage('SonarQube Analysis') {
+            steps{
+                sh $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=reddit-project -Dsonar.projectName=reddit-project
+           }
+
+       }
+       stage('Trivy File Scan') {
+            steps {
+                sh "trivy fs . > trivys.txt"
+            }
+       }
+       stages('OWASP FILE SCAN') {
+            steps {
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey 0e3f83e0-9c40-4469-86ef-22b666ba753c', odcInstallation: 'DP-Check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+       }
+       stage('Docker Login') {
+            steps {
+                sh "echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin"
+                echo "Login Succeeded"
+           }
+       }  
+       stage('Docker Build') {
+            steps {
+                scripts {
+                    def branchTag = determineTargetEnvironment()
+                    if (branchTag == 'prod') {
+                        sh "npm run build"
+                        sh "sed -i 's/CMD \\[\"npm\", \"run\", \"dev\"\\]/CMD \\[\"npm\", \"start\"\\]/' Dockerfile"
+                        sh "docker build -t $IMAGE_NAME:$branchTag-$IMAGE_TAG ."
+
+                   }
+               }  
+            }
+       }
+       stage("Docker Push") {
+            steps {
+                script {
+                  def branchTag = determineTargetEnvironment()
+                  sh "docker push $IMAGE_NAME:$branchTag-$IMAGE_TAG"
+               }
+            }
+        }
+        stage('Deployment') {
+            steps {
+                script {
+                    dir('./K8s') {
+                        kubeconfig(credentialsId: '500a0599-809f-4de0-a060-0fdbb6583332', serverUrl: '') {
+                            def branchTag = determineTargetEnvironment()
+                            def targetEnvironment = determineTargetEnvironment()
+                            def deploymentName = "${targetEnvironment}-reddit-project-deployment"
+                            def deploymentFile = "${targetEnvironment}-deployment.yaml"
+                            def serviceFile = "${targetEnvironment}-service.yaml"
+                            def deploymentExist = sh(script: "kubectl get deployment ${deploymentName}", returnStatus: true)
+
+                            if (deploymentExist == 0) {
+                                sh "kubectl delete -f ${deploymentFile}"
+                                sh "sed -i 's|image: .*|image: $IMAGE_NAME:$branchTag-$IMAGE_TAG|' $deploymentFile"
+                                sh "kubectl apply -f ${deploymentFile}"
+                                sh "kubectl apply -f ${serviceFile}"
+                            } else {
+                                echo "Deployment does not exist. Creating new ${targetEnvironment} deployment"
+                                sh "sed -i 's|image: .*|image: $IMAGE_NAME:$branchTag-$IMAGE_TAG|' $deploymentFile"
+                                sh "kubectl apply -f ${deploymentFile}"
+                                sh "kubectl apply -f ${serviceFile}"
+                            }
+                            def deploymentURL = sh(script: "kubectl get service ${targetEnvironment}-reddit-project-service -o=jsonpath='{.status.loadBalancer.ingress[0].ip}' -n ${targetEnvironment}-namespace", returnStdout: true).trim()
+                            env.DEPLOYMENT_URL = deploymentURL
+                        }
+                    }
+                }
+            }
+        }           
+    }
+    post {
+       success {        
+            slackSend channel: '#alerts', color: 'good', message: "${currentBuild.currentResult}: \nJOB_NAME: ${env.JOB_NAME} \nBUILD_NUMBER: ${env.BUILD_NUMBER} \nBRANCH_NAME: ${env.BRANCH_NAME} \nDeployment URL: ${DEPLOYMENT_URL}. \n More Info ${env.BUILD_URL}."
+        }
+        failure {
+            slackSend channel: '#alerts', color: 'danger', message: "${currentBuild.currentResult}: \nJOB_NAME: ${env.JOB_NAME} \nBUILD_NUMBER: ${env.BUILD_NUMBER} \nBRANCH_NAME: ${env.BRANCH_NAME}. \n More Info ${env.BUILD_URL}"
+        } 
+    }
+    def determineTargetEnvironment() {
+    def branchName = env.BRANCH_NAME
+    if (branchName == 'qa') {
+        return 'qa'
+    } else if (branchName == 'prod') {
+        return 'prod'
+    } else {
+        return 'dev'
+    }
+    }   
+}
+
+
+
+
+
