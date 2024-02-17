@@ -5,7 +5,7 @@ pipeline {
     }
     environment {
         DOCKERHUB_CREDENTIALS = credentials('716274dc-f41e-4e10-9f58-f501c9063a39')
-        SCANNER_HOME = tool 'sonar-scanner'
+        SCANNER_HOME=tool 'sonar-scanner'
         IMAGE_NAME = "blesseddocker/reddit-project"
         IMAGE_TAG = "v1-${env.BUILD_NUMBER}"
         BRANCH_NAME = "${GIT_BRANCH.split("/")[1]}" 
